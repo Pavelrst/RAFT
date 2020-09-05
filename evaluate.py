@@ -10,12 +10,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 import datasets
 from utils import flow_viz
 from raft import RAFT
 
-    
+from args import raft_sintel_val_args
 
 def validate_sintel(args, model, iters=50):
     """ Evaluate trained model on Sintel(train) clean + final passes """
@@ -23,10 +24,11 @@ def validate_sintel(args, model, iters=50):
     pad = 2
 
     for dstype in ['clean', 'final']:
-        val_dataset = datasets.MpiSintel(args, do_augument=False, dstype=dstype)
-        
+        val_dataset = datasets.MpiSintel_Val(args, root=args.dataset_root, do_augument=False, dstype=dstype)
+        assert len(val_dataset) > 0
+
         epe_list = []
-        for i in range(len(val_dataset)):
+        for i in tqdm(range(len(val_dataset))):
             image1, image2, flow_gt, _ = val_dataset[i]
             image1 = image1[None].cuda()
             image2 = image2[None].cuda()
@@ -81,20 +83,24 @@ def validate_kitti(args, model, iters=32):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', help="restore checkpoint")
-    parser.add_argument('--small', action='store_true', help='use small model')
-    parser.add_argument('--sintel_iters', type=int, default=50)
-    parser.add_argument('--kitti_iters', type=int, default=32)
+    CKPT_PATH = '.\\checkpoints'
+    raft_ckpts = []
+    sflo_ckpts = []
+    for ckpt_path in os.listdir(CKPT_PATH):
+        if 'random_crop_v3' in ckpt_path:
+            raft_ckpts.append(os.path.join(CKPT_PATH, ckpt_path))
 
-    args = parser.parse_args()
+    # Validate RAFT augmentor per steps
+    for ckpt in raft_ckpts:
+        # args = raft_sintel_val_args('.\\checkpoints\\sintel_ft_raft_aug.pth')
+        print('============ validate', ckpt)
+        args = raft_sintel_val_args(ckpt)
 
-    model = RAFT(args)
-    model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load(args.model))
+        model = RAFT(args)
+        model = torch.nn.DataParallel(model)
+        model.load_state_dict(torch.load(args.model))
 
-    model.to('cuda')
-    model.eval()
+        model.to('cuda')
+        model.eval()
 
-    validate_sintel(args, model, args.sintel_iters)
-    validate_kitti(args, model, args.kitti_iters)
+        validate_sintel(args, model, args.iters)
