@@ -12,7 +12,7 @@ from PIL import Image
 import datasets
 from utils import flow_viz
 from raft import RAFT
-
+from args import raft_demo_args
 
 DEVICE = 'cuda'
 
@@ -31,6 +31,7 @@ def load_image(imfile):
     img = np.array(Image.open(imfile)).astype(np.uint8)[..., :3]
     img = torch.from_numpy(img).permute(2, 0, 1).float()
     return pad8(img[None]).to(DEVICE)
+    # return img[None].to(DEVICE)
 
 
 def display(image1, image2, flow):
@@ -81,10 +82,5 @@ def demo(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model', help="restore checkpoint")
-    parser.add_argument('--small', action='store_true', help='use small model')
-    parser.add_argument('--iters', type=int, default=12)
-
-    args = parser.parse_args()
+    args = raft_demo_args()
     demo(args)
