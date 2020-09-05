@@ -6,11 +6,101 @@ from PIL import Image
 
 import torch
 import torchvision
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
+from core.utils.scopeflow_utils.scopeflow_augmentor import RandomAffineFlowOccSintel
+from core.utils.scopeflow_utils import transforms
+from torchvision import transforms as vision_transforms
+from core.utils.scopeflow_utils.vis_utils import show_image
+from tqdm import tqdm
+
+class ScopeFlowAugmentor_adapter:
+    '''
+    This class adapts the implementation
+    of the augmentation technique
+    described in ScopeFlow paper.
+    '''
+    def __init__(self, args):
+        self.augmentor_module = RandomAffineFlowOccSintel(args, addnoise=True)
+        self.show_aug = args.show_aug
+        self.image_crop_size = args.image_size
+
+        # ----------------------------------------------------------
+        # photometric_augmentations
+        # ----------------------------------------------------------
+        if args.photometric_augmentations:
+            self._photometric_transform = transforms.ConcatTransformSplitChainer([
+                # uint8 -> PIL
+                vision_transforms.ToPILImage(),
+                # PIL -> PIL : random hsv and contrast
+                vision_transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
+                # PIL -> FloatTensor
+                vision_transforms.transforms.ToTensor(),
+                transforms.RandomGamma(min_gamma=0.7, max_gamma=1.5, clip_image=True),
+            ], from_numpy=True, to_numpy=False)
+
+        else:
+            self._photometric_transform = transforms.ConcatTransformSplitChainer([
+                # uint8 -> FloatTensor
+                vision_transforms.transforms.ToTensor(),
+            ], from_numpy=True, to_numpy=False)
+
+    def adapt_input_to_scopeflow_augmentor(self, img1, img2, flow):
+        '''
+        Batchify and transpose to shape BxCHxHxW, convert to range [0,1]
+        :param img: numpy array BxHxWxCH
+        :return: numpy array BxCHxHxW
+        '''
+        if self.show_aug:
+            plt.subplot(221)
+            plt.title('1 (Input)')
+            show_image(img1, subplote=True)
+
+        img1, img2 = self._photometric_transform(img1, img2)
+        flow = np.transpose(flow, (2, 0, 1))
+        flow = np.expand_dims(flow, 0)
+
+        input_dict = {}
+        input_dict['input1'] = img1.unsqueeze(0)
+        input_dict['input2'] = img2.unsqueeze(0)
+        input_dict['target1'] = torch.from_numpy(flow)
+        input_dict['target_occ1'] = torch.from_numpy(flow)  # not used.
+
+        return input_dict
+
+    def readapt_input_to_raft(self, result_dict):
+        '''
+        Remove batch dimension, transpose to HxWxCH, set range [0, 255]
+        '''
+        img1 = result_dict['input1'].squeeze(0).cpu().detach().numpy()
+        img2 = result_dict['input2'].squeeze(0).cpu().detach().numpy()
+        flow = result_dict['target1'].squeeze(0).cpu().detach().numpy()
+
+        img1 = np.transpose(img1, (1, 2, 0))
+        img2 = np.transpose(img2, (1, 2, 0))
+        flow = np.transpose(flow, (1, 2, 0))
+
+        img1 = img1 * 255
+        img2 = img2 * 255
+
+        return img1, img2, flow
+
+    def __call__(self, img1, img2, flow):
+        input_dict = self.adapt_input_to_scopeflow_augmentor(img1, img2, flow)
+
+        result_dict = self.augmentor_module.forward(input_dict)
+
+        # Check that image size is of correct size, must be multiples of 8.
+        while not result_dict['input1'].shape[2] % 8 == 0 and result_dict['input1'].shape[3] % 8 == 0:
+            print("Fixing mul8 loop activated")
+            result_dict = self.augmentor_module.forward(input_dict)
+
+        return self.readapt_input_to_raft(result_dict)
 
 class FlowAugmentor:
-    def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5):
-        self.crop_size = crop_size
+    def __init__(self, args):
+        self.crop_size = args.image_size
+        assert not isinstance(self.crop_size, str), 'args.image_size should not be string for RAFT augmentor'
         self.augcolor = torchvision.transforms.ColorJitter(
             brightness=0.4, 
             contrast=0.4, 
@@ -21,11 +111,13 @@ class FlowAugmentor:
         self.spatial_aug_prob = 0.8
         self.eraser_aug_prob = 0.5
 
-        self.min_scale = min_scale
-        self.max_scale = max_scale
+        self.min_scale = args.min_scale
+        self.max_scale = args.max_scale
         self.max_stretch = 0.2
         self.stretch_prob = 0.8
         self.margin = 20
+
+        self.show_aug = args.show_aug
 
     def color_transform(self, img1, img2):
 
@@ -104,9 +196,31 @@ class FlowAugmentor:
         return img1, img2, flow
 
     def __call__(self, img1, img2, flow):
+        if self.show_aug:
+            plt.subplot(221)
+            plt.title('1 (Input)')
+            show_image(img1, subplote=True)
+
         img1, img2 = self.color_transform(img1, img2)
+
+        if self.show_aug:
+            plt.subplot(222)
+            plt.title('2 (Color Transform)')
+            show_image(img1, subplote=True)
+
         img1, img2 = self.eraser_transform(img1, img2)
+
+        if self.show_aug:
+            plt.subplot(223)
+            plt.title('3 (eraser transform)')
+            show_image(img1, subplote=True)
+
         img1, img2, flow = self.spatial_transform(img1, img2, flow)
+
+        if self.show_aug:
+            plt.subplot(224)
+            plt.title('4 (spatial transform)')
+            show_image(img1)
 
         img1 = np.ascontiguousarray(img1)
         img2 = np.ascontiguousarray(img2)
