@@ -12,8 +12,8 @@ import random
 from glob import glob
 import os.path as osp
 
-from utils import frame_utils
-from utils.augmentor import FlowAugmentor, FlowAugmentorKITTI
+from core.utils import frame_utils
+from core.utils.augmentor import FlowAugmentor, FlowAugmentorKITTI, ScopeFlowAugmentor_adapter
 
 
 class CombinedDataset(data.Dataset):
@@ -44,7 +44,12 @@ class FlowDataset(data.Dataset):
         self.do_augument = do_augument
 
         if self.do_augument:
-            self.augumentor = FlowAugmentor(self.image_size)
+            if args.augmentor_type == 'raft_augmentor':
+                self.augumentor = FlowAugmentor(args)
+            elif args.augmentor_type == 'scopeflow_augmentor':
+                self.augumentor = ScopeFlowAugmentor_adapter(args)
+            else:
+                raise NotImplementedError
 
         self.flow_list = []
         self.image_list = []
@@ -79,6 +84,7 @@ class FlowDataset(data.Dataset):
         valid = torch.ones_like(flow[0])
 
         return img1, img2, flow, valid
+
 
     def __len__(self):
         return len(self.image_list)
@@ -119,7 +125,7 @@ class MpiSintelTest(FlowDataset):
 class MpiSintel(FlowDataset):
     def __init__(self, args, image_size=None, do_augument=True, root='datasets/Sintel/training', dstype='clean'):
         super(MpiSintel, self).__init__(args, image_size, do_augument)
-        if do_augument:
+        if do_augument and args.augmentor_type == 'raft_augmentor':
             self.augumentor.min_scale = -0.2
             self.augumentor.max_scale = 0.7
 
@@ -143,6 +149,46 @@ class MpiSintel(FlowDataset):
 
             self.image_list.append((img1, img2))
             self.flow_list.append(flo)
+
+
+class MpiSintel_Train(MpiSintel):
+    def __init__(self, args, image_size=None, do_augument=True, root='datasets/Sintel/training', dstype='clean'):
+        super(MpiSintel_Train, self).__init__(args, image_size, do_augument, root, dstype)
+        self.remove_validation_indices(args)
+
+    def remove_validation_indices(self, args):
+        temp_image_list = self.image_list
+        temp_flow_list = self.flow_list
+
+        self.image_list = []
+        self.flow_list = []
+
+        for idx, (img_tuple, flow) in enumerate(zip(temp_image_list, temp_flow_list)):
+            if idx not in args.val_idx:
+                self.image_list.append(img_tuple)
+                self.flow_list.append(flow)
+            # else:
+            #     print('Removing index ', idx, ' from Sintel training set')
+
+
+class MpiSintel_Val(MpiSintel):
+    def __init__(self, args, image_size=None, do_augument=False, root='datasets/Sintel/training', dstype='clean'):
+        super(MpiSintel_Val, self).__init__(args, image_size, do_augument, root, dstype)
+        self.remove_training_indices(args)
+
+    def remove_training_indices(self, args):
+        temp_image_list = self.image_list
+        temp_flow_list = self.flow_list
+
+        self.image_list = []
+        self.flow_list = []
+
+        for idx, (img_tuple, flow) in enumerate(zip(temp_image_list, temp_flow_list)):
+            if idx in args.val_idx:
+                self.image_list.append(img_tuple)
+                self.flow_list.append(flow)
+            # else:
+            #     print('Removing index ', idx, ' from Sintel validation set')
 
 
 class FlyingChairs(FlowDataset):
