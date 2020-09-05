@@ -14,7 +14,7 @@ class RAFT(nn.Module):
         super(RAFT, self).__init__()
         self.args = args
 
-        if args.small:
+        if args.small_model:
             self.hidden_dim = hdim = 96
             self.context_dim = cdim = 64
             args.corr_levels = 4
@@ -26,11 +26,8 @@ class RAFT(nn.Module):
             args.corr_levels = 4
             args.corr_radius = 4
 
-        if 'dropout' not in args._get_kwargs():
-            args.dropout = 0
-
         # feature network, context network, and update block
-        if args.small:
+        if args.small_model:
             self.fnet = SmallEncoder(output_dim=128, norm_fn='instance', dropout=args.dropout)        
             self.cnet = SmallEncoder(output_dim=hdim+cdim, norm_fn='none', dropout=args.dropout)
             self.update_block = SmallUpdateBlock(self.args, hidden_dim=hdim)
