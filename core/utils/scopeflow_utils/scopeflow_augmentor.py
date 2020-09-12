@@ -694,7 +694,7 @@ class RandomAffineFlowOccSintel(nn.Module):
         self.register_buffer("_x", torch.IntTensor(1))
         self.register_buffer("_y", torch.IntTensor(1))
 
-        self.batch_counter = counter(args.batch_size)
+        self.batch_crop_counter = args.batch_crop_counter
         self.last_crop_size = None
 
     def inverse_transform_coords(self, width, height, thetas, offset_x=None, offset_y=None):
@@ -881,47 +881,44 @@ class RandomAffineFlowOccSintel(nn.Module):
     def random_crop(self, im1, im2, flo_f, occ1):
         _, _, height, width = im1.size()
 
-        if self.batch_counter.is_new_cycle():
-            if self._crop == 'random':
-                crop_height, crop_width = random.choice([#(196, 448),
-                                                         #(256, 640),
-                                                         (384, 768),
-                                                         (400, 900),
-                                                         (436, 1024)])
-            elif self._crop == 'random_v2':
-                if 'crop_min_ratio' in dir(self._args):
-                    min_ratio = self._args.crop_min_ratio
-                else:
-                    min_ratio = 0.95
-                if 'crop_max_ratio' in dir(self._args):
-                    max_ratio = self._args.crop_max_ratio
-                else:
-                    max_ratio = 1.
-                crop_height = random.randint(round(min_ratio * height),
-                                             round(max_ratio * height))
-                crop_width = random.randint(round(min_ratio * width),
-                                            round(max_ratio * width))
-            elif self._crop == 'random_v3_raft':
-                '''
-                This is RAFT adaptation for Sintel only. 
-                These are all possibilities for of crom sizes with ratios between 95%-100%
-                The crop sizes must be multiples of 8, which those are.
-                '''
-                crop_height, crop_width = random.choice([
-                    (432, 1024), (432, 1016), (432, 1008), (432, 992), (432, 984), (432, 976),
-                    (424, 1024), (424, 1016), (424, 1008), (424, 992), (424, 984), (424, 976),
-                    (416, 1024), (416, 1016), (416, 1008), (416, 992), (416, 984), (416, 976)])
+        print(self.batch_crop_counter.to_string())
+        if self._crop == 'random':
+            crop_height, crop_width = random.choice([#(196, 448),
+                                                     #(256, 640),
+                                                     (384, 768),
+                                                     (400, 900),
+                                                     (436, 1024)])
+        elif self._crop == 'random_v2':
+            if 'crop_min_ratio' in dir(self._args):
+                min_ratio = self._args.crop_min_ratio
             else:
-                crop_height, crop_width = self._crop
+                min_ratio = 0.95
+            if 'crop_max_ratio' in dir(self._args):
+                max_ratio = self._args.crop_max_ratio
+            else:
+                max_ratio = 1.
+            crop_height = random.randint(round(min_ratio * height),
+                                         round(max_ratio * height))
+            crop_width = random.randint(round(min_ratio * width),
+                                        round(max_ratio * width))
+        elif self._crop == 'random_v3_raft':
+            '''
+            This is RAFT adaptation for Sintel only. 
+            These are all possibilities for of crom sizes with ratios between 95%-100%
+            The crop sizes must be multiples of 8, which those are.
+            '''
+            crop_height, crop_width = self.batch_crop_counter.get_crop_size()
+        else:
+            crop_height, crop_width = self._crop
 
             self.last_crop_size = (crop_height, crop_width)
-        else:
-            crop_height, crop_width = self.last_crop_size
+            print("Last crop size: {}/{}".format(crop_height, crop_width))
 
-        self.batch_counter.inc()
+        self.batch_crop_counter.inc()
 
         if self.show_aug:
             print("Crop size: {}/{}".format(crop_height, crop_width))
+        print("Crop size: {}/{}".format(crop_height, crop_width))
 
         # get starting positions
         self._x.random_(0, width - crop_width + 1)
@@ -1351,19 +1348,3 @@ class RandomAffineFlowOccKITTI(nn.Module):
         example_dict["input_valid"] = valid_mask
 
         return example_dict
-
-class counter():
-    def __init__(self, cycle_size):
-        self.cycle_size = cycle_size
-        self.curr_count = 0
-
-    def inc(self):
-        self.curr_count += 1
-        if self.curr_count == self.cycle_size:
-            self.curr_count = 0
-
-    def is_new_cycle(self):
-        if self.curr_count == 0:
-            return True
-        else:
-            return False
