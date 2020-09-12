@@ -193,7 +193,7 @@ if __name__ == '__main__':
         os.mkdir('checkpoints')
 
     neptune.init('pavelrasto/RAFT-Scopeflow')
-    neptune.create_experiment(name='Scopeflow augmentor 1', description='Scopeflow augmentorr without photometric transformations')
+    neptune.create_experiment(name='Scopeflow augmentor 1', description='Scopeflow augmentorr without photometric transformations -b3 -iter160K')
 
     args = raft_sintel_ft_args(exp_name='sintel_ft_sflo_aug_no_photometric', augment_type='scopeflow_augmentor')
     torch.manual_seed(args.seed)

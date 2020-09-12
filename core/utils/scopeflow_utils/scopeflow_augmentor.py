@@ -881,7 +881,6 @@ class RandomAffineFlowOccSintel(nn.Module):
     def random_crop(self, im1, im2, flo_f, occ1):
         _, _, height, width = im1.size()
 
-        print(self.batch_crop_counter.to_string())
         if self._crop == 'random':
             crop_height, crop_width = random.choice([#(196, 448),
                                                      #(256, 640),
@@ -918,7 +917,6 @@ class RandomAffineFlowOccSintel(nn.Module):
 
         if self.show_aug:
             print("Crop size: {}/{}".format(crop_height, crop_width))
-        print("Crop size: {}/{}".format(crop_height, crop_width))
 
         # get starting positions
         self._x.random_(0, width - crop_width + 1)
