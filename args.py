@@ -6,7 +6,7 @@ class raft_args():
         self.experiment_name = 'default_args'
         self.dataset = None
         self.dataset_root = None
-        self.num_of_workers = 4
+        self.num_of_workers = 0 #batch counter doesnt work for more than one worker
         self.restore_ckpt = None
         self.model = None
         self.small_model = False
@@ -49,12 +49,12 @@ class raft_args():
                         973, 974, 975, 976, 977, 978, 979, 980, 981, 982, 983, 984, 985, 986, 987, 988, 989, 990, 991]
 
     def train_check_paths(self):
-        assert exists(self.restore_ckpt)
-        assert exists(self.dataset_root)
+        assert exists(self.restore_ckpt), f"No such restore ckpt path {self.restore_ckpt}"
+        assert exists(self.dataset_root), f"No such dataset path {self.dataset_root}"
 
     def val_check_paths(self):
-        assert exists(self.dataset_root)
-        assert exists(self.model)
+        assert exists(self.dataset_root), f"No such dataset path {self.dataset_root}"
+        assert exists(self.model), f"No such model path {self.model}"
 
 # class raft_chairs_train_args(raft_args):
 #     def __init__(self):
@@ -87,13 +87,14 @@ class raft_sintel_args(raft_args):
         self.image_size = 'random_v3_raft' #'random_v2' #[368, 768]
         self.dataset = 'sintel'
         # self.dataset_root = 'I:\\datasets\\Sintel\\training'
-        self.dataset_root = 'C:\\Users\\Pavel\\Downloads\\Sintel\\training'
-        self.num_steps = 240000
+        self.dataset_root = 'datasets/Sintel/training' #'C:\\Users\\Pavel\\Downloads\\Sintel\\training'
+        self.num_steps = 160000
         self.lr = 0.00005
         self.batch_size = 2
-        self.restore_ckpt = 'checkpoints\\chairs+things.pth'
+        self.restore_ckpt = 'checkpoints/chairs+things.pth' #'checkpoints\\chairs+things.pth'
         self.train_check_paths()
-
+        # batch counter fix for scopflow random crop
+        self.batch_crop_counter = crop_counter(self.batch_size)
 
 class raft_sintel_ft_args(raft_sintel_args):
     def __init__(self, exp_name='sintel_ft_raft_aug', augment_type='raft_augmentor'):
@@ -108,7 +109,7 @@ class raft_sintel_val_args(raft_args):
     def __init__(self, model):
         super().__init__()
         self.dataset = 'sintel'
-        self.dataset_root = 'I:\\datasets\\Sintel\\training'
+        self.dataset_root = 'datasets/Sintel/training' #'I:\\datasets\\Sintel\\training'
         self.model = model
         self.iters = 50
 
@@ -125,3 +126,36 @@ class raft_sintel_debug_args(raft_args):
         self.train_check_paths()
         self.augmentor_type = 'scopeflow_augmentor'
         self.show_aug = True
+
+# fast fix.
+import random
+class crop_counter():
+    def __init__(self, cycle_size):
+        self.cycle_size = cycle_size
+        self.curr_count = 0
+        self.last_crop_size = None
+
+    def to_string(self):
+        return "count: "+str(self.curr_count)+" size: "+str(self.cycle_size)+" new_cycle:"+str(self.is_new_cycle())
+
+    def inc(self):
+        self.curr_count += 1
+        if self.curr_count == self.cycle_size:
+            self.curr_count = 0
+
+    def get_crop_size(self):
+        if self.is_new_cycle():
+            crop_height, crop_width = random.choice([
+                (432, 1024), (432, 1016), (432, 1008), (432, 992), (432, 984), (432, 976),
+                (424, 1024), (424, 1016), (424, 1008), (424, 992), (424, 984), (424, 976),
+                (416, 1024), (416, 1016), (416, 1008), (416, 992), (416, 984), (416, 976)])
+            self.last_crop_size = crop_height, crop_width
+            return crop_height, crop_width
+        else:
+            return self.last_crop_size
+
+    def is_new_cycle(self):
+        if self.curr_count == 0:
+            return True
+        else:
+            return False
