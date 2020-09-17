@@ -98,6 +98,9 @@ class ScopeFlowAugmentor_adapter:
         return self.readapt_input_to_raft(result_dict)
 
 class FlowAugmentor:
+    '''
+    This is an original augmentor used in RAFT model.
+    '''
     def __init__(self, args):
         self.crop_size = args.image_size
         assert not isinstance(self.crop_size, str), 'args.image_size should not be string for RAFT augmentor'
