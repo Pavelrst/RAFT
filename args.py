@@ -89,7 +89,7 @@ class raft_sintel_args(raft_args):
         self.dataset = 'sintel'
         # self.dataset_root = 'I:\\datasets\\Sintel\\training'
         self.dataset_root = 'datasets/Sintel/training' #'C:\\Users\\Pavel\\Downloads\\Sintel\\training'
-        self.num_steps = 160000
+        self.num_steps = 240000
         self.lr = 0.00005
         self.batch_size = 2
         self.restore_ckpt = 'checkpoints/chairs+things.pth' #'checkpoints\\chairs+things.pth'
