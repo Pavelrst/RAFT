@@ -12,6 +12,7 @@ from core.utils.scopeflow_utils.scopeflow_augmentor import RandomAffineFlowOccSi
 from core.utils.scopeflow_utils import transforms
 from torchvision import transforms as vision_transforms
 from core.utils.scopeflow_utils.vis_utils import show_image
+from core.utils.reflect_pad import reflect_pad
 from tqdm import tqdm
 
 class ScopeFlowAugmentor_adapter:
@@ -121,6 +122,7 @@ class FlowAugmentor:
         self.margin = 20
 
         self.show_aug = args.show_aug
+        self.padding = args.padding
 
     def color_transform(self, img1, img2):
 
@@ -198,7 +200,20 @@ class FlowAugmentor:
 
         return img1, img2, flow
 
+    def reflection_padding(self, img1, img2, flow):
+        '''
+        :param input images: [H,W,Ch]
+        :return: [H,W,Ch]
+        '''
+        img1 = reflect_pad(img1)
+        img2 = reflect_pad(img2)
+        flow = reflect_pad(flow)
+        return img1, img2, flow
+
     def __call__(self, img1, img2, flow):
+        if self.padding:
+            img1, img2, flow = self.reflection_padding(img1, img2, flow)
+
         if self.show_aug:
             plt.subplot(221)
             plt.title('1 (Input)')
