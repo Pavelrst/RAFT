@@ -909,9 +909,8 @@ class RandomAffineFlowOccSintel(nn.Module):
             crop_height, crop_width = self.batch_crop_counter.get_crop_size()
         else:
             crop_height, crop_width = self._crop
-
             self.last_crop_size = (crop_height, crop_width)
-            print("Last crop size: {}/{}".format(crop_height, crop_width))
+
 
         self.batch_crop_counter.inc()
 
