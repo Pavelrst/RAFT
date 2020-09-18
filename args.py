@@ -84,7 +84,8 @@ class raft_args():
 class raft_sintel_args(raft_args):
     def __init__(self):
         super().__init__()
-        self.image_size = 'random_v3_raft' #'random_v2' #[368, 768]
+        self.image_size = [368, 768] #'random_v3_raft' #'random_v2'
+        self.padding = True
         self.dataset = 'sintel'
         # self.dataset_root = 'I:\\datasets\\Sintel\\training'
         self.dataset_root = 'datasets/Sintel/training' #'C:\\Users\\Pavel\\Downloads\\Sintel\\training'
