@@ -1,6 +1,6 @@
 import numpy as np
 
-def reflect_pad(img):
+def reflect_pad(img, flow=False):
     '''
     :param img: image of shape [H, W, C]
     :return: padded image of shape [H, W, C]
@@ -17,7 +17,10 @@ def reflect_pad(img):
     for ch in range(ch_num):
         res[:, :, ch] = np.pad(img[:, :, ch], ((TOP_PAD, DOWN_PAD), (LEFT_PAD, RIGHT_PAD)), 'reflect')
 
-    return res.astype(np.uint8)
+    if flow == True:
+        return res
+    else:
+        return res.astype(np.uint8)
 
 
 
