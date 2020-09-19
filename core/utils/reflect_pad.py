@@ -8,9 +8,9 @@ def reflect_pad(img, flow=False):
     ch_num = img.shape[2]
 
     TOP_PAD = 0
-    DOWN_PAD = int(img.shape[0]*0.5)
-    LEFT_PAD = int(img.shape[1]*0.25)
-    RIGHT_PAD = int(img.shape[1]*0.25)
+    DOWN_PAD = int(img.shape[0]*0.25)
+    LEFT_PAD = int(img.shape[1]*0.125)
+    RIGHT_PAD = int(img.shape[1]*0.125)
 
     res = np.zeros((img.shape[0]+TOP_PAD+DOWN_PAD, img.shape[1]+LEFT_PAD+RIGHT_PAD, img.shape[2]))
 
