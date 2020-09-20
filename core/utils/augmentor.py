@@ -12,7 +12,7 @@ from core.utils.scopeflow_utils.scopeflow_augmentor import RandomAffineFlowOccSi
 from core.utils.scopeflow_utils import transforms
 from torchvision import transforms as vision_transforms
 from core.utils.scopeflow_utils.vis_utils import show_image
-from core.utils.reflect_pad import reflect_pad
+from core.utils.reflect_pad import reflect_pad, refect_pad_flow
 from core.utils.flow_viz import flow_to_image
 from tqdm import tqdm
 
@@ -212,7 +212,7 @@ class FlowAugmentor:
         '''
         img1 = reflect_pad(img1)
         img2 = reflect_pad(img2)
-        flow = reflect_pad(flow, flow=True)
+        flow = refect_pad_flow(flow)
         return img1, img2, flow
 
     def __call__(self, img1, img2, flow):
